@@ -2,6 +2,7 @@ package com.appsdeveloperblog.orders.service.handler;
 
 
 import com.appsdeveloperblog.core.dto.commands.ApproveOrderCommand;
+import com.appsdeveloperblog.core.dto.events.OrderApprovedEvent;
 import com.appsdeveloperblog.orders.service.OrderService;
 import org.springframework.kafka.annotation.KafkaHandler;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -22,8 +23,7 @@ public class OrderCommandsHandler {
 
     @KafkaHandler
     public void handleCommand(@Payload ApproveOrderCommand approveOrderCommand) {
-
-
+        orderService.approveOrder(approveOrderCommand.getOrderId());
 
     }
 }

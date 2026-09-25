@@ -1,13 +1,20 @@
 package com.appsdeveloperblog.orders.service;
 
 import com.appsdeveloperblog.core.dto.Order;
+import com.appsdeveloperblog.core.dto.events.OrderApprovedEvent;
 import com.appsdeveloperblog.core.dto.events.OrderCreatedEvent;
 import com.appsdeveloperblog.core.types.OrderStatus;
 import com.appsdeveloperblog.orders.dao.jpa.entity.OrderEntity;
 import com.appsdeveloperblog.orders.dao.jpa.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+
+import java.util.UUID;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -40,8 +47,16 @@ public class OrderServiceImpl implements OrderService {
         );
 
         // Need kafka-template object to send message to the kafka-topic.
-
-        kafkaTemplate.send(orderEventsTopicName, placedOrder);
+        /**
+         * Creating Custom event
+         */
+        Message<OrderCreatedEvent> message = MessageBuilder
+                .withPayload(placedOrder)
+//                .setHeader(KafkaHeaders.TOPIC, orderEventsTopicName)
+                .setHeader("Triggered Event", "OrderCreatedEvent")
+                .build();
+//        kafkaTemplate.send(orderEventsTopicName, placedOrder);
+        kafkaTemplate.send(message);
 
         return new Order(
                 entity.getId(),
@@ -51,4 +66,15 @@ public class OrderServiceImpl implements OrderService {
                 entity.getStatus());
     }
 
+    @Override
+    public void approveOrder(UUID orderId) {
+        OrderEntity orderEntity = orderRepository.findById(orderId).orElse(null);
+        Assert.notNull(orderEntity, "Order with id " + orderId + " not found");
+        orderEntity.setStatus(OrderStatus.APPROVED);
+        orderRepository.save(orderEntity);
+        // Need order approved event created
+        OrderApprovedEvent orderApprovedEvent = new OrderApprovedEvent(orderId);
+        // Need kafka-template object to send message to the kafka-topic.
+        kafkaTemplate.send(orderEventsTopicName, orderApprovedEvent);
+    }
 }
